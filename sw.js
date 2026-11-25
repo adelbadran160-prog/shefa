@@ -1,4 +1,4 @@
-const V = 'shefa-c1';
+const V = 'shefa-c2';
 const CORE = ['./', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 const same = (u) => new URL(u, self.location.href).origin === self.location.origin;
 async function put(c, url, res) { if (res && res.status === 200) await c.put(url, res.clone()); return res; }
@@ -40,8 +40,11 @@ self.addEventListener('fetch', (e) => {
   e.respondWith((async () => {
     const c = await caches.open(V); const hit = await c.match(q.url);
     if (hit && hashed) return hit;
+    // Files without a hash in the name (main.js, main.css): network first so a new version shows on the very next launch; the saved copy is used only when offline or the network takes over 4 seconds.
     const net = fetch(q).then((r) => put(c, q.url, r)).catch(() => null);
-    return hit || (await net) || Response.error();
+    if (!hit) return (await net) || Response.error();
+    const r = await Promise.race([net, new Promise((res) => setTimeout(() => res(null), 4000))]);
+    return r || hit;
   })());
 });
 self.addEventListener('push', e => { let d = {}; try { d = e.data ? e.data.json() : {}; } catch (x) {}
