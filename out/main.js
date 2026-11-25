@@ -1,11 +1,14 @@
 ;(()=>{
-const ON=false;const W="https://shefa-reader.shefa-pharmacy.workers.dev/translate",K="shefa.tr.v1";
+const ON=true;const W="https://shefa-reader.shefa-pharmacy.workers.dev/translate",K="shefa.tr.v1";
 const AD="٠١٢٣٤٥٦٧٨٩",AP="۰۱۲۳۴۵۶۷۸۹";
 const norm=s=>String(s).replace(/[٠-٩]/g,d=>AD.indexOf(d)).replace(/[۰-۹]/g,d=>AP.indexOf(d)).replace(/٫/g,".").replace(/٬/g,",");
 const nums=s=>(norm(s).match(/\d+(?:[.,]\d+)?/g)||[]).map(x=>x.replace(",","."));
 const bag=a=>{const m={};for(const x of a)m[x]=(m[x]||0)+1;return m};
 // every number in the source must appear in the translation at least as often; extra numbers are not allowed either
-function numbersOk(en,ar){const a=bag(nums(en)),b=bag(nums(ar));for(const k in a)if((b[k]||0)<a[k])return false;for(const k in b)if(!a[k])return false;return true}
+const NW={one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12,once:1,twice:2};
+function wordNums(s){return (String(s).toLowerCase().match(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|once|twice)\b/g)||[]).map(w=>String(NW[w]))}
+// digits in the source are required in the translation; number words in the source (two, twice) may appear as extra digits; nothing else may be added
+function numbersOk(en,ar){const req=bag(nums(en)),extra=bag(wordNums(en)),b=bag(nums(ar));for(const k in req)if((b[k]||0)<req[k])return false;for(const k in b)if(b[k]>(req[k]||0)+(extra[k]||0))return false;return true}
 function lenOk(en,ar){return ar.length>=en.length*0.3&&ar.length<=en.length*3}
 function hasArabic(s){return /[\u0600-\u06FF]/.test(s)}
 const h=s=>{let x=5381;for(let i=0;i<s.length;i++)x=(x*33^s.charCodeAt(i))>>>0;return x.toString(36)+"."+s.length};
@@ -18,9 +21,8 @@ async function translate(en){
   if(pend[key])return pend[key];
   return pend[key]=(async()=>{
     try{
-      const ac=new AbortController(),t=setTimeout(()=>ac.abort(),25000);
-      let r;try{r=await fetch(W,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({text:en}),signal:ac.signal})}finally{clearTimeout(t)}
-      const j=await r.json().catch(()=>({}));
+      let r,j;for(let at=0;at<2;at++){const ac=new AbortController(),t=setTimeout(()=>ac.abort(),25000);try{r=await fetch(W,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({text:en}),signal:ac.signal})}finally{clearTimeout(t)}
+      j=await r.json().catch(()=>({}));if(r.status<500)break;await new Promise(z=>setTimeout(z,1200))}
       if(!r.ok||!j.ok||typeof j.ar!=="string")return{ok:false,why:j.error==="quota"||j.error==="rate"?"busy":"fail"};
       const ar=j.ar.replace(/[\u0000-\u001f]+/g," ").trim();
       if(!hasArabic(ar)||!lenOk(en,ar))return{ok:false,why:"bad"};
