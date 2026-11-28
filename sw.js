@@ -1,4 +1,4 @@
-const V = 'shefa-c6';
+const V = 'shefa-c7';
 const CORE = ['./', 'ddi.json', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 const same = (u) => new URL(u, self.location.href).origin === self.location.origin;
 async function put(c, url, res) { if (res && res.status === 200) await c.put(url, res.clone()); return res; }
